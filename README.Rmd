@@ -1,0 +1,113 @@
+---
+title: "README"
+date: "July 23, 2015"
+output: html_document
+---
+# Getting and Cleaning Data Assignment: README
+## Info
+This assignment was completed on July, 23 2015 by Luis Seabra Coelho.
+This file describes how the script run_analysis.R works
+
+## The script, step by step
+
+To run it, just run "source("run_analysis.R")" after adjusting the working directory as indicated below.
+
+### Set working directory
+The script starts off by setting the working directory and it expects the data files to be in that directory.
+```R
+setwd("./Data Science Specialization/03 Geting and Cleaning Data/assignment/")
+```
+### Step 1: Load and merge the data
+First load the test data section loads the test data (x_test, y_test and subject_test), then load the train data,
+Finally, bind the x data together (test and train data), y data and subject too.
+```R
+##
+## STEP 1
+## Merges the training and the test sets to create one data set
+##
+## Loading test data
+test.xdata    <- read.table("X_test.txt")
+test.ydata    <- read.table("Y_test.txt")
+test.subject  <- read.table("subject_test.txt")
+## Loading training data
+train.xdata    <- read.table("X_train.txt")
+train.ydata    <- read.table("Y_train.txt")
+train.subject  <- read.table("subject_train.txt")
+## Merge the data
+xdata <- rbind(test.xdata, train.xdata)
+ydata <- rbind(test.ydata, train.ydata)
+subject <- rbind(test.subject, train.subject)
+```
+### Step 2: Keep just the mean and standard deviation for each measurement
+First load the data regarding the activity labels and features (to be used as column labels).
+Also, construct feature.to.keep with the features that include either "mean" or "std".
+Then we label the xdata dataset with those features and keep just the ones that include either "mean" or "std".
+```R
+##
+## STEP 2
+## Extracts only the measurements on the mean and standard deviation for each measurement
+##
+## Loading comun data
+labels   <- read.table("UCI HAR Dataset/activity_labels.txt", header=FALSE)[,2]
+features <- read.table("UCI HAR Dataset/features.txt", header=FALSE)[,2]
+features.to.keep <- grepl("mean|std", features)
+## start off by setting column names
+names(xdata) = features
+## Just keep the data to work on
+xdata = xdata[,features.to.keep]
+```
+### Step 3: Set activity names
+We now add a second column to the ydata dataset containing the label according to the the value on the 1st row of ydata. So if the value of the 1st column is 5 we add the 5th label on the 2nd column (in this case, STANDING).
+```R
+##
+## STEP 3
+## Uses descriptive activity names to name the activities in the data set
+##
+
+ydata[,2] = labels[ydata[,1]]
+```
+### Step 4: Appropriately labels the data set with descriptive variable names
+Just addding the column names "Activity.ID" and "Activity.Label" respectivelly to the 1st and 2nd columns of the dataset ydata. and the column name "Subject" to the subject dataset.
+```R
+##
+## STEP 4
+## Appropriately labels the data set with descriptive variable names
+##
+names(ydata) = c("Activity.ID", "Activity.Label")
+names(subject) = "Subject"
+```
+### Step 5: From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject
+First we create the complete dataset with the first column from the subject dataset, then the 2 columns from the ydata dataset and then the xdata dataset (making a total of 82 columns).
+Then we melt the data dataset, that is, we create a new dataset named melt.data with the 3 columns "Subject", "Activity.ID", "Activity.Label", then the variable measured and the respective value, making a total of 5 columns. For example, the 10th row the melt.data dataset is:
+```R
+> melt.data[10,]
+   Subject Activity.ID Activity.Label          variable     value
+10       2           5       STANDING tBodyAcc-mean()-X 0.2757457
+```
+And finally, we reconstruct the data set using dcast (similar to a pivot table), keepig the Subject and Activity.Label as the 1st 2 columns and then for each variable compute the mean of that measurement. So the 1st 5 columns of the 10th row of this new tidy.data dataset is:
+```R
+> tidy.data[10,1:5]
+   Subject Activity.Label tBodyAcc-mean()-X tBodyAcc-mean()-Y tBodyAcc-mean()-Z
+10       2        WALKING         0.2764266       -0.01859492        -0.1055004
+```
+At the very last, we generae a text file tidydata.txt with the contents of the tidy.data dataset.
+```R
+##
+## STEP 5
+## From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject
+##
+
+## Bind x data with y data
+data <- cbind(subject, ydata, xdata)
+## Load reshape 2 to use melt
+require(reshape2)
+row.labels   = c("Subject", "Activity.ID", "Activity.Label")
+data.labels = setdiff(colnames(data), row.labels)
+melt.data      = melt(data, id = row.labels, measure.vars = data.labels)
+
+# Apply mean function to dataset using dcast function
+tidy.data   = dcast(melt.data, Subject + Activity.Label ~ variable, mean)
+
+write.table(tidy.data, file = "tidydata.txt", row.names=FALSE)
+```
+
